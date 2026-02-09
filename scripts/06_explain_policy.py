@@ -1,9 +1,8 @@
 import argparse
 
-from xppm.utils.logging import get_logger
 from xppm.utils.config import Config
+from xppm.utils.logging import get_logger
 from xppm.xai.explain_policy import explain_policy
-
 
 logger = get_logger(__name__)
 

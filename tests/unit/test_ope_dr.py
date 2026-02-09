@@ -7,6 +7,7 @@ from xppm.ope.report import save_ope_report
 def test_ope_dr_smoke(tmp_path: Path) -> None:
     import numpy as np
     import torch
+
     from xppm.rl.models.q_network import QNetwork
 
     # Create tiny dataset

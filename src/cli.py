@@ -2,18 +2,15 @@ from __future__ import annotations
 
 import argparse
 
-from pathlib import Path
-
-from xppm.data.preprocess import preprocess_event_log
-from xppm.data.encode_prefixes import encode_prefixes
 from xppm.data.build_mdp import build_mdp_dataset
+from xppm.data.encode_prefixes import encode_prefixes
+from xppm.data.preprocess import preprocess_event_log
 from xppm.data.validate_split import validate_and_split
 from xppm.ope.doubly_robust import doubly_robust_estimate
 from xppm.ope.report import save_ope_report
 from xppm.rl.train_tdqn import TDQNConfig, train_tdqn
 from xppm.utils.config import Config
 from xppm.utils.logging import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -40,7 +37,11 @@ def main() -> None:
     elif args.command == "encode":
         encode_prefixes(cfg["data"]["cleaned_log_path"], cfg["data"]["prefixes_path"])
     elif args.command == "build_mdp":
-        build_mdp_dataset(cfg["data"]["prefixes_path"], cfg["data"]["offline_dataset_path"], cfg["data"]["splits_path"])
+        build_mdp_dataset(
+            cfg["data"]["prefixes_path"],
+            cfg["data"]["offline_dataset_path"],
+            cfg["data"]["splits_path"],
+        )
     elif args.command == "train":
         # Minimal mapping from config to TDQNConfig; adjust as you refine config structure.
         tdqn_cfg = TDQNConfig(
@@ -62,7 +63,10 @@ def main() -> None:
             cfg["experiment"].get("checkpoint_path", "artifacts/checkpoints/Q_theta.ckpt"),
             cfg["data"]["offline_dataset_path"],
         )
-        save_ope_report(metrics, cfg["experiment"].get("ope_report_path", "artifacts/ope/ope_dr.json"))
+        save_ope_report(
+            metrics,
+            cfg["experiment"].get("ope_report_path", "artifacts/ope/ope_dr.json"),
+        )
         logger.info("OPE metrics: %s", metrics)
 
 

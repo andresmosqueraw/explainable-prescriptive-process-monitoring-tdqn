@@ -1,9 +1,8 @@
 import argparse
 
-from xppm.utils.logging import get_logger
-from xppm.utils.config import Config
 from xppm.rl.train_tdqn import TDQNConfig, train_tdqn
-
+from xppm.utils.config import Config
+from xppm.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

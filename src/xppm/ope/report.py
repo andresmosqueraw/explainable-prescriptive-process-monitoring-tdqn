@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
-
-import json
 
 
 def save_ope_report(metrics: dict[str, Any], output_path: str | Path) -> None:

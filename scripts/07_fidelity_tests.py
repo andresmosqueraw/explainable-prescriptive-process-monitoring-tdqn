@@ -1,9 +1,8 @@
 import argparse
 
-from xppm.utils.logging import get_logger
 from xppm.utils.config import Config
+from xppm.utils.logging import get_logger
 from xppm.xai.fidelity_tests import run_fidelity_tests
-
 
 logger = get_logger(__name__)
 

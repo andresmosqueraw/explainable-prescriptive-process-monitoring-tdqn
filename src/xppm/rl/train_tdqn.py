@@ -4,16 +4,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import torch
 from torch import nn, optim
 
 from xppm.rl.models.q_network import QNetwork
 from xppm.rl.replay import ReplayBuffer
 from xppm.utils.io import load_npz
-from xppm.utils.logging import get_logger, ensure_dir
+from xppm.utils.logging import ensure_dir, get_logger
 from xppm.utils.seed import set_seed
-
 
 logger = get_logger(__name__)
 
@@ -40,7 +38,12 @@ def load_replay(dataset_path: str | Path) -> ReplayBuffer:
     )
 
 
-def train_tdqn(config: TDQNConfig, dataset_path: str | Path, checkpoint_path: str | Path, seed: int = 42) -> dict[str, Any]:
+def train_tdqn(
+    config: TDQNConfig,
+    dataset_path: str | Path,
+    checkpoint_path: str | Path,
+    seed: int = 42,
+) -> dict[str, Any]:
     """Minimal offline TDQN training loop (stub: single-network DQN-style)."""
     set_seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

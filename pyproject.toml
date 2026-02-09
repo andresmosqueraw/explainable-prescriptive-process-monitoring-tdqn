@@ -23,6 +23,7 @@ dev = [
     "mypy",
     "ruff",
     "black",
+    "types-PyYAML",
 ]
 
 [build-system]

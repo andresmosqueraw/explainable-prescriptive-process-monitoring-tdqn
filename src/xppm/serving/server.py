@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from xppm.serving.guard import guard_action
 from xppm.serving.schemas import ActionRecommendation, CaseRequest
 
-
 app = FastAPI(title="xPPM TDQN Policy Server")
 
 

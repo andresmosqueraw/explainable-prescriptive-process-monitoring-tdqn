@@ -1,9 +1,8 @@
 import argparse
 
-from xppm.utils.logging import get_logger
-from xppm.utils.config import Config
 from xppm.data.encode_prefixes import encode_prefixes
-
+from xppm.utils.config import Config
+from xppm.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
