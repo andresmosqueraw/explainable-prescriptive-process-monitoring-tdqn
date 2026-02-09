@@ -3,47 +3,116 @@ stages:
     cmd: python scripts/01_preprocess_log.py --config configs/config.yaml
     deps:
       - scripts/01_preprocess_log.py
-      - src/xppm/data/preprocess.py
       - configs/config.yaml
+      - data/raw
     outs:
       - data/interim/clean.parquet
+
+  validate_split:
+    cmd: python scripts/01b_validate_and_split.py --config configs/config.yaml
+    deps:
+      - scripts/01b_validate_and_split.py
+      - configs/config.yaml
+      - data/interim/clean.parquet
+    outs:
+      - data/processed/splits.json
+    metrics:
+      - artifacts/reports/validation.json:
+          cache: false
 
   encode_prefixes:
     cmd: python scripts/02_encode_prefixes.py --config configs/config.yaml
     deps:
       - scripts/02_encode_prefixes.py
-      - src/xppm/data/encode_prefixes.py
+      - configs/config.yaml
       - data/interim/clean.parquet
+      - data/processed/splits.json
     outs:
       - data/interim/prefixes.npy
+      - data/interim/vocab.json
 
-  build_mdp:
+  build_rlset:
     cmd: python scripts/03_build_mdp_dataset.py --config configs/config.yaml
     deps:
       - scripts/03_build_mdp_dataset.py
-      - src/xppm/data/build_mdp.py
+      - configs/config.yaml
+      - data/interim/clean.parquet
       - data/interim/prefixes.npy
+      - data/processed/splits.json
     outs:
       - data/processed/D_offline.npz
-      - data/processed/splits.json
 
   train_tdqn:
     cmd: python scripts/04_train_tdqn_offline.py --config configs/config.yaml
     deps:
       - scripts/04_train_tdqn_offline.py
-      - src/xppm/rl/train_tdqn.py
+      - configs/config.yaml
       - data/processed/D_offline.npz
       - data/processed/splits.json
     outs:
       - artifacts/checkpoints/Q_theta.ckpt
+    metrics:
+      - artifacts/metrics/train.json:
+          cache: false
+    params:
+      - seed
+      - training.batch_size
+      - training.max_steps
+      - training.lr
+      - training.gamma
+      - transformer.d_model
+      - transformer.n_heads
+      - transformer.n_layers
+
 
   ope_dr:
     cmd: python scripts/05_run_ope_dr.py --config configs/config.yaml
     deps:
       - scripts/05_run_ope_dr.py
-      - src/xppm/ope/doubly_robust.py
+      - configs/config.yaml
       - artifacts/checkpoints/Q_theta.ckpt
+      - data/processed/D_offline.npz
+      - data/processed/splits.json
     outs:
       - artifacts/ope/ope_dr.json
+    metrics:
+      - artifacts/metrics/ope.json:
+          cache: false
 
+  explain_policy:
+    cmd: python scripts/06_explain_policy.py --config configs/config.yaml
+    deps:
+      - scripts/06_explain_policy.py
+      - configs/config.yaml
+      - artifacts/checkpoints/Q_theta.ckpt
+      - data/processed/D_offline.npz
+      - data/processed/splits.json
+      - artifacts/ope/ope_dr.json
+    outs:
+      - artifacts/xai
 
+  fidelity_tests:
+    cmd: python scripts/07_fidelity_tests.py --config configs/config.yaml
+    deps:
+      - scripts/07_fidelity_tests.py
+      - configs/config.yaml
+      - artifacts/checkpoints/Q_theta.ckpt
+      - data/processed/D_offline.npz
+      - data/processed/splits.json
+      - artifacts/xai
+    outs:
+      - artifacts/fidelity/fidelity.csv
+    metrics:
+      - artifacts/metrics/fidelity.json:
+          cache: false
+
+  distill_policy:
+    cmd: python scripts/08_distill_policy.py --config configs/config.yaml
+    deps:
+      - scripts/08_distill_policy.py
+      - configs/config.yaml
+      - artifacts/checkpoints/Q_theta.ckpt
+      - data/processed/D_offline.npz
+      - data/processed/splits.json
+    outs:
+      - artifacts/distill

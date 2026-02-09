@@ -1,23 +1,255 @@
-defaults:
-  - params: ../params.yaml
 
-experiment:
-  name: "xppm_tdqn_default"
-  output_dir: "artifacts"
+---
+
+## 2) `configs/config.yaml` (plantilla alineada a tu figura)
+
+```yaml
+project:
+  name: xppm-tdqn
+  run_name: "simbank_tdqn_seed42"
+  seed: 42
+  deterministic: true
+
+tracking:
+  enabled: true
+  backend: wandb        # wandb | mlflow | csv
+  wandb:
+    project: "xppm-tdqn"
+    entity: null
+    tags: ["offline-rl", "process-mining", "xai"]
+  mlflow:
+    experiment_name: "xppm-tdqn"
+  log_artifacts: true
+  log_code: true
+  log_config: true
+
+paths:
+  data_raw: "data/raw/simbank_log.csv"      # o .xes
+  data_interim_dir: "data/interim"
+  data_processed_dir: "data/processed"
+  artifacts_dir: "artifacts"
 
 data:
-  event_log_path: "data/raw/event_log.xes"
-  cleaned_log_path: "data/interim/clean.parquet"
-  prefixes_path: "data/interim/prefixes.npy"
-  offline_dataset_path: "data/processed/D_offline.npz"
-  splits_path: "data/processed/splits.json"
+  format: csv         # csv | xes
+  case_id_col: "case_id"
+  activity_col: "activity"
+  timestamp_col: "timestamp"
+  resource_col: null
+  categorical_cols: ["activity"]  # + resource etc
+  numeric_cols: ["amount", "est_quality", "unc_quality", "cum_cost", "elapsed_time"]
+  drop_cols: []
+  sort_by_time: true
 
-model:
-  hidden_dim: 128
-  n_layers: 2
-  dropout: 0.1
+preprocess:
+  out_clean_parquet: "clean.parquet"
+  drop_incomplete_cases: true
+  impute_missing:
+    enabled: true
+    strategy: "median"   # median | mean | zero (para numéricas)
+  normalize_numeric:
+    enabled: true
+    method: "zscore"     # zscore | minmax
+  filters:
+    min_events_per_case: 2
+    max_events_per_case: 200
 
-policy:
-  action_space: ["start_standard", "start_priority", "contact_headquarters", "do_nothing", "set_ir_low", "set_ir_mid", "set_ir_high"]
+validation_split:
+  enabled: true
+  split_strategy: "case_id"   # case_id | temporal
+  temporal:
+    time_col: "timestamp"
+    train_end: null
+    val_end: null
+  ratios:
+    train: 0.7
+    val: 0.1
+    test: 0.2
+  out_splits_json: "splits.json"
+  schema_checks:
+    enabled: true
+    schema_file: "configs/schemas/event_log.schema.json"
+  range_checks:
+    enabled: true
+    numeric_ranges:
+      amount: [0, 1.0e9]
+      elapsed_time: [0, 1.0e9]
+  drift_checks:
+    enabled: false
+    method: "psi"   # psi | ks
+    threshold: 0.2
 
+encoding:
+  method: "sequence"          # sequence (transformer) | tabular
+  prefix_len: 50              # trunc/pad
+  pad_token: "<PAD>"
+  unk_token: "<UNK>"
+  build_prefixes:
+    out_prefixes_npy: "prefixes.npy"
+    out_vocab_json: "vocab.json"
+  event_embedding:
+    activity_vocab_min_freq: 1
+    use_time_deltas: true
+    time_delta_col: "delta_t"
+  state_features:
+    include_process_prefix_tokens: true
+    include_numeric_case_feats: true
 
+mdp:
+  # define decision points + action width/depth
+  decision_points:
+    mode: "activity_based"      # activity_based | every_step | custom
+    allowed_activities: null
+  actions:
+    # ejemplo: [NOOP, procedure_A, procedure_B, set_rate_low, set_rate_high, contact_HQ]
+    action_list: ["NOOP", "PROC_A", "PROC_B", "RATE_LOW", "RATE_HIGH", "HQ_CONTACT"]
+    noop_action: "NOOP"
+  action_mask:
+    enabled: true
+    rules:
+      # reglas de validez (ejemplo)
+      - if_activity_in: ["START"]
+        valid_actions: ["NOOP", "PROC_A", "PROC_B"]
+      - if_activity_in: ["RISK_REVIEW"]
+        valid_actions: ["NOOP", "HQ_CONTACT"]
+      - default_valid_actions: ["NOOP"]
+  reward:
+    type: "terminal"             # terminal | dense
+    terminal_profit:
+      interest_revenue_col: "interest_rev"
+      operational_cost_col: "op_cost"
+      capital_cost_col: "cap_cost"
+      risk_adjusted: true
+    discount_gamma: 0.99
+  build_offline_rlset:
+    out_npz: "D_offline.npz"
+    store_next_state: true
+    store_action_mask: true
+    store_metadata: true
+
+training:
+  device: "cuda"        # cuda | cpu
+  precision: "fp32"     # fp32 | fp16 (si usas amp)
+  batch_size: 256
+  max_steps: 200000
+  eval_every: 5000
+  save_every: 10000
+  checkpoint_name: "Q_theta.ckpt"
+
+  tdqn:
+    gamma: 0.99
+    double_dqn: true
+    target_update_every: 2000
+    grad_clip_norm: 10.0
+    learning_rate: 3.0e-4
+    weight_decay: 0.0
+    optimizer: "adamw"
+    lr_scheduler:
+      enabled: true
+      type: "cosine"     # cosine | step | none
+      warmup_steps: 2000
+
+  transformer:
+    d_model: 128
+    n_heads: 4
+    n_layers: 3
+    dropout: 0.1
+    max_len: 50
+
+  replay:
+    type: "offline"         # offline
+    capacity: 2000000
+    sampling: "uniform"     # uniform | balanced | reweighted
+    balanced:
+      by_action: true
+    reweighting:
+      enabled: false
+      method: "is_ratio_clip"  # is_ratio_clip | density_ratio
+      clip: 10.0
+
+ope:
+  enabled: true
+  method: "doubly_robust"
+  behavior_model:
+    type: "multiclass_logreg"  # multiclass_logreg | mlp
+    features: "state"          # state | tabular
+    calibrate: true
+  dr:
+    # DR en secuencial: necesitas estimate model + IW; aquí dejas knobs
+    bootstrap:
+      enabled: true
+      n: 200
+    clip_importance_weights: 20.0
+  out_json: "ope/ope_dr.json"
+
+xai:
+  enabled: true
+  checkpoint_path: "artifacts/checkpoints/Q_theta.ckpt"
+  methods:
+    risk:
+      attribution: "integrated_gradients"   # integrated_gradients | gradients | attention
+      top_k: 10
+    intervention:
+      contrast:
+        baseline_action: "NOOP"             # a' para deltaQ
+        compare_now_vs_delay: true
+      delta_q:
+        enabled: true
+        top_k: 10
+  out_dir: "xai"
+  outputs:
+    risk_explanations_json: "risk_explanations.json"
+    deltaq_explanations_json: "deltaQ_explanations.json"
+    attributions_npy: "ig_grad_attributions.npy"
+    policy_summary_json: "policy_summary.json"
+
+fidelity:
+  enabled: true
+  tests:
+    q_drop:
+      enabled: true
+      deletion: "mask_topk"     # mask_topk | permute_topk | zero_topk
+      top_k: 10
+    action_flip:
+      enabled: true
+      top_k: 10
+    rank_consistency:
+      enabled: true
+      metrics: ["spearman", "kendall"]
+      compare: ["q_rank", "ope_rank"]
+  out_csv: "fidelity/fidelity.csv"
+
+distill:
+  enabled: true
+  teacher_checkpoint: "artifacts/checkpoints/Q_theta.ckpt"
+  method: "viper"            # viper | behavioral_cloning
+  surrogate:
+    type: "decision_tree"    # decision_tree | rule_list
+    max_depth: 6
+    min_samples_leaf: 50
+  sample:
+    n_states: 200000
+    prioritize_by_value: true
+    value_quantile: 0.8
+  out_dir: "distill"
+  outputs:
+    tree_pkl: "tree.pkl"
+    rules_sql: "rules.sql"
+
+serving:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8000
+  guard:
+    enabled: true
+    uncertainty:
+      enabled: true
+      method: "ensemble"   # ensemble | mc_dropout | none
+      threshold: 0.2
+    ood:
+      enabled: true
+      method: "mahalanobis"  # mahalanobis | density | none
+      threshold: 3.0
+    fallback_policy: "NOOP"   # o "heuristic"
+    human_override: true
+  schema:
+    file: "configs/schemas/api.schema.json"

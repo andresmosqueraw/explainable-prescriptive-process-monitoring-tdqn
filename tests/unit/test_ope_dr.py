@@ -25,8 +25,8 @@ def test_ope_dr_smoke(tmp_path: Path) -> None:
         dones=dones,
     )
 
-    # Dummy Q-network checkpoint
-    q_net = QNetwork(state_dim=1, n_actions=1, hidden_dim=4)
+    # Dummy Q-network checkpoint with same hidden dim as OPE default (128)
+    q_net = QNetwork(state_dim=1, n_actions=1, hidden_dim=128)
     ckpt = tmp_path / "Q_theta.ckpt"
     torch.save(q_net.state_dict(), ckpt)
 
