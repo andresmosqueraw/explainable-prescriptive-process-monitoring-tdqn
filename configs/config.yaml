@@ -7,8 +7,11 @@
 project:
   name: xppm-tdqn
   run_name: "simbank_tdqn_seed42"
+
+# Reproducibility settings
+repro:
   seed: 42
-  deterministic: true
+  deterministic: true  # Enable deterministic algorithms (may impact performance)
 
 tracking:
   enabled: true

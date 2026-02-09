@@ -11,6 +11,7 @@ from xppm.ope.report import save_ope_report
 from xppm.rl.train_tdqn import TDQNConfig, train_tdqn
 from xppm.utils.config import Config
 from xppm.utils.logging import get_logger
+from xppm.utils.seed import set_seed
 
 logger = get_logger(__name__)
 
@@ -29,7 +30,19 @@ def main() -> None:
     subparsers.add_parser("ope", parents=[common])
 
     args = parser.parse_args()
-    cfg = Config.from_yaml(args.config).raw
+    config_obj = Config.from_yaml(args.config)
+    cfg = config_obj.raw
+
+    # Set seed and deterministic mode from config (reproducibility)
+    # Support both new 'repro' section and legacy 'project' section
+    repro_cfg = cfg.get("repro", {})
+    if not repro_cfg:
+        # Fallback to legacy location
+        repro_cfg = cfg.get("project", {})
+    seed = repro_cfg.get("seed", 42)
+    deterministic = repro_cfg.get("deterministic", False)
+    set_seed(seed, deterministic=deterministic)
+    logger.info("Set seed=%d, deterministic=%s", seed, deterministic)
 
     if args.command == "preprocess":
         preprocess_event_log(cfg["data"]["event_log_path"], cfg["data"]["cleaned_log_path"])
@@ -53,10 +66,17 @@ def main() -> None:
             batch_size=int(cfg.get("rl", {}).get("batch_size", 128)),
             max_epochs=int(cfg.get("rl", {}).get("max_epochs", 1)),
         )
+        checkpoint_path = cfg["experiment"].get(
+            "checkpoint_path", "artifacts/checkpoints/Q_theta.ckpt"
+        )
         train_tdqn(
             tdqn_cfg,
             cfg["data"]["offline_dataset_path"],
-            cfg["experiment"].get("checkpoint_path", "artifacts/checkpoints/Q_theta.ckpt"),
+            checkpoint_path,
+            seed=seed,
+            deterministic=deterministic,
+            config_hash=config_obj.config_hash,
+            metadata_output=cfg["experiment"].get("metadata_path"),
         )
     elif args.command == "ope":
         metrics = doubly_robust_estimate(

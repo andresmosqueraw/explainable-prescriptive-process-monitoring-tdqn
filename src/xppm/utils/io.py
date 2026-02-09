@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -35,5 +37,61 @@ def load_npz(path: str | Path) -> dict[str, Any]:
 def save_npz(path: str | Path, **arrays: Any) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, **arrays)
+
+
+def get_git_commit() -> dict[str, str | bool]:
+    """Get current git commit hash and dirty status.
+    
+    Returns:
+        dict with 'commit' (hash string) and 'dirty' (bool)
+    """
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True
+        ).strip()
+        # Check if working directory is dirty
+        try:
+            subprocess.check_output(
+                ["git", "diff", "--quiet"], stderr=subprocess.DEVNULL
+            )
+            dirty = False
+        except subprocess.CalledProcessError:
+            dirty = True
+        return {"commit": commit, "dirty": dirty}
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return {"commit": "unknown", "dirty": True}
+
+
+def fingerprint_data(paths: list[str | Path], use_dvc: bool = True) -> str:
+    """Generate fingerprint for data files.
+    
+    Args:
+        paths: List of data file paths
+        use_dvc: If True, try to use DVC hash; otherwise use file sha256
+    
+    Returns:
+        Combined hash string
+    """
+    if use_dvc:
+        try:
+            # Try to get DVC hash from dvc.lock or .dvc files
+            dvc_lock = Path("dvc.lock")
+            if dvc_lock.exists():
+                with open(dvc_lock, "rb") as f:
+                    content = f.read()
+                return hashlib.sha256(content).hexdigest()[:16]
+        except Exception:
+            pass
+    
+    # Fallback: hash file contents
+    hasher = hashlib.sha256()
+    for path in paths:
+        p = Path(path)
+        if p.exists():
+            with open(p, "rb") as f:
+                # Read in chunks to handle large files
+                while chunk := f.read(8192):
+                    hasher.update(chunk)
+    return hasher.hexdigest()[:16]
 
 

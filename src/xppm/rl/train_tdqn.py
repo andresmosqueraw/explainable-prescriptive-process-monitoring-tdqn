@@ -4,13 +4,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from torch import nn, optim
 
 from xppm.rl.models.q_network import QNetwork
 from xppm.rl.replay import ReplayBuffer
-from xppm.utils.io import load_npz
-from xppm.utils.logging import ensure_dir, get_logger
+from xppm.utils.io import fingerprint_data, load_npz
+from xppm.utils.logging import (
+    ensure_dir,
+    finalize_run_metadata,
+    get_logger,
+    save_run_metadata,
+    start_run_metadata,
+)
 from xppm.utils.seed import set_seed
 
 logger = get_logger(__name__)
@@ -27,14 +34,19 @@ class TDQNConfig:
     max_epochs: int = 1  # keep very small as a smoke default
 
 
-def load_replay(dataset_path: str | Path) -> ReplayBuffer:
+def load_replay(dataset_path: str | Path, seed: int | None = None) -> ReplayBuffer:
+    """Load replay buffer with optional seed for deterministic sampling."""
     data = load_npz(dataset_path)
+    rng = None
+    if seed is not None:
+        rng = np.random.default_rng(seed)
     return ReplayBuffer(
         states=data["states"],
         actions=data["actions"],
         rewards=data["rewards"],
         next_states=data["next_states"],
         dones=data["dones"],
+        rng=rng,
     )
 
 
@@ -43,12 +55,36 @@ def train_tdqn(
     dataset_path: str | Path,
     checkpoint_path: str | Path,
     seed: int = 42,
+    deterministic: bool = False,
+    config_hash: str | None = None,
+    metadata_output: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Minimal offline TDQN training loop (stub: single-network DQN-style)."""
-    set_seed(seed)
+    """Minimal offline TDQN training loop (stub: single-network DQN-style).
+    
+    Args:
+        config: TDQN configuration
+        dataset_path: Path to offline dataset
+        checkpoint_path: Where to save checkpoint
+        seed: Random seed
+        deterministic: Enable deterministic algorithms
+        config_hash: Config hash for metadata
+        metadata_output: Optional path to save run metadata
+    """
+    set_seed(seed, deterministic=deterministic)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    replay = load_replay(dataset_path)
+    # Initialize metadata tracking
+    data_fp = fingerprint_data([dataset_path])
+    metadata = start_run_metadata(
+        stage="train",
+        config_path="config",
+        config_hash=config_hash or "unknown",
+        seed=seed,
+        deterministic=deterministic,
+        data_fingerprint=data_fp,
+    )
+
+    replay = load_replay(dataset_path, seed=seed)
     q_net = QNetwork(config.state_dim, config.n_actions, config.hidden_dim).to(device)
     target_q_net = QNetwork(config.state_dim, config.n_actions, config.hidden_dim).to(device)
     target_q_net.load_state_dict(q_net.state_dict())
@@ -82,6 +118,22 @@ def train_tdqn(
     ensure_dir(Path(checkpoint_path).parent)
     torch.save(q_net.state_dict(), checkpoint_path)
     logger.info("Saved checkpoint to %s", checkpoint_path)
-    return {"final_loss": float(loss.item())}
+    
+    # Finalize and save metadata
+    metrics = {"final_loss": float(loss.item())}
+    metadata = finalize_run_metadata(
+        metadata,
+        outputs=[checkpoint_path],
+        metrics=metrics,
+    )
+    
+    if metadata_output:
+        save_run_metadata(metadata, metadata_output)
+    else:
+        # Default location
+        meta_path = Path(checkpoint_path).parent / f"{Path(checkpoint_path).stem}.meta.json"
+        save_run_metadata(metadata, meta_path)
+    
+    return metrics
 
 

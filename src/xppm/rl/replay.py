@@ -12,9 +12,16 @@ class ReplayBuffer:
     rewards: np.ndarray
     next_states: np.ndarray
     dones: np.ndarray
+    rng: np.random.Generator | None = None
+
+    def __post_init__(self) -> None:
+        """Initialize RNG if not provided (for deterministic sampling)."""
+        if self.rng is None:
+            self.rng = np.random.default_rng()
 
     def sample(self, batch_size: int) -> dict[str, np.ndarray]:
-        idx = np.random.randint(0, len(self.states), size=batch_size)
+        """Sample batch with controlled RNG for reproducibility."""
+        idx = self.rng.integers(0, len(self.states), size=batch_size)
         return {
             "states": self.states[idx],
             "actions": self.actions[idx],

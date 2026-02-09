@@ -39,8 +39,28 @@ Repo para:
 - (Opcional) W&B o MLflow para tracking
 - (Opcional) DVC para versionar data/artifacts
 
-## Instalación rápida (ejemplo con uv)
+## Instalación reproducible
+
+### Opción 1: uv (recomendado)
 ```bash
 uv venv
 source .venv/bin/activate
-uv pip install -e .
+uv pip install -e .[dev]
+# Lock file: uv.lock (generado automáticamente)
+```
+
+### Opción 2: poetry
+```bash
+poetry install
+# Lock file: poetry.lock
+```
+
+### Opción 3: pip (básico)
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+# Para reproducibilidad: pip freeze > requirements-lock.txt
+```
+
+**Nota:** Para reproducibilidad completa, usa `uv.lock` o `poetry.lock` en lugar de instalar desde rangos sueltos.
