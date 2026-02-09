@@ -134,6 +134,44 @@ If the output file doesn't exist, you can build without `--overwrite`:
 python scripts/03_build_mdp_dataset.py --config configs/config.yaml
 ```
 
+## Validate and Split Dataset (Step 01b)
+
+### Regenerate splits (official command)
+
+To rebuild train/val/test splits from scratch (requires `--overwrite` flag):
+
+```bash
+python scripts/01b_validate_and_split.py --config configs/config.yaml --overwrite
+```
+
+**Important:** The `--overwrite` flag is required to prevent accidental overwrites
+of real splits. This ensures you explicitly confirm when regenerating.
+
+### Validate inputs without creating splits (dry-run)
+
+To validate that the MDP dataset exists and config is correct without creating splits:
+
+```bash
+python scripts/01b_validate_and_split.py --config configs/config.yaml --dry-run
+```
+
+This checks:
+- MDP dataset exists (`data/processed/D_offline.npz`)
+- Config is valid
+- Computes data hashes for reproducibility
+
+### First-time split (no overwrite needed)
+
+If the splits file doesn't exist, you can create splits without `--overwrite`:
+
+```bash
+python scripts/01b_validate_and_split.py --config configs/config.yaml
+```
+
+**Outputs:**
+- `data/processed/splits.json`: Train/val/test case assignments
+- `artifacts/reports/split_report.json`: Validation and drift statistics
+
 ## Experiment tracking
 
 Configure tracking in `configs/config.yaml`:

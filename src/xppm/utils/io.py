@@ -39,9 +39,26 @@ def save_npz(path: str | Path, **arrays: Any) -> None:
     np.savez_compressed(path, **arrays)
 
 
+def load_json(path: str | Path) -> dict[str, Any]:
+    """Load JSON file."""
+    import json
+
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_json(obj: dict[str, Any], path: str | Path, indent: int = 2) -> None:
+    """Save object to JSON file."""
+    import json
+
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=indent, default=str)
+
+
 def get_git_commit() -> dict[str, str | bool]:
     """Get current git commit hash and dirty status.
-    
+
     Returns:
         dict with 'commit' (hash string) and 'dirty' (bool)
     """
@@ -51,9 +68,7 @@ def get_git_commit() -> dict[str, str | bool]:
         ).strip()
         # Check if working directory is dirty
         try:
-            subprocess.check_output(
-                ["git", "diff", "--quiet"], stderr=subprocess.DEVNULL
-            )
+            subprocess.check_output(["git", "diff", "--quiet"], stderr=subprocess.DEVNULL)
             dirty = False
         except subprocess.CalledProcessError:
             dirty = True
@@ -64,11 +79,11 @@ def get_git_commit() -> dict[str, str | bool]:
 
 def fingerprint_data(paths: list[str | Path], use_dvc: bool = True) -> str:
     """Generate fingerprint for data files.
-    
+
     Args:
         paths: List of data file paths
         use_dvc: If True, try to use DVC hash; otherwise use file sha256
-    
+
     Returns:
         Combined hash string
     """
@@ -82,7 +97,7 @@ def fingerprint_data(paths: list[str | Path], use_dvc: bool = True) -> str:
                 return hashlib.sha256(content).hexdigest()[:16]
         except Exception:
             pass
-    
+
     # Fallback: hash file contents
     hasher = hashlib.sha256()
     for path in paths:
@@ -97,28 +112,28 @@ def fingerprint_data(paths: list[str | Path], use_dvc: bool = True) -> str:
 
 def dvc_out_hash(dvc_file: str | Path) -> str:
     """Read DVC hash from .dvc file.
-    
+
     Args:
         dvc_file: Path to .dvc file (e.g., "data/interim/clean.parquet.dvc")
-    
+
     Returns:
         MD5/hash string from DVC, or "UNKNOWN" if not found
     """
     try:
         import yaml
-        
+
         dvc_path = Path(dvc_file)
         if not dvc_path.exists():
             return "UNKNOWN"
-        
+
         with open(dvc_path, "r", encoding="utf-8") as f:
             dvc_data = yaml.safe_load(f)
-        
+
         # DVC structure: {"outs": [{"path": "...", "md5": "...", ...}]}
         if "outs" in dvc_data and len(dvc_data["outs"]) > 0:
             out = dvc_data["outs"][0]
             return out.get("md5") or out.get("etag") or out.get("hash") or "UNKNOWN"
-        
+
         return "UNKNOWN"
     except Exception:
         return "UNKNOWN"
@@ -126,14 +141,12 @@ def dvc_out_hash(dvc_file: str | Path) -> str:
 
 def get_dvc_hashes(data_paths: dict[str, str]) -> dict[str, str]:
     """Get DVC hashes for multiple data files.
-    
+
     Args:
         data_paths: Dict mapping names to .dvc file paths
                    e.g., {"clean_parquet": "data/interim/clean.parquet.dvc"}
-    
+
     Returns:
         Dict mapping names to DVC hashes
     """
     return {name: dvc_out_hash(path) for name, path in data_paths.items()}
-
-
