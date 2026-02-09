@@ -28,7 +28,7 @@ def ensure_dir(path: str | Path) -> None:
 
 def get_env_fingerprint() -> dict[str, Any]:
     """Capture environment fingerprint (Python, packages, GPU info)."""
-    env = {
+    env: dict[str, Any] = {
         "python_version": platform.python_version(),
         "hostname": socket.gethostname(),
         "platform": platform.platform(),
@@ -38,8 +38,8 @@ def get_env_fingerprint() -> dict[str, Any]:
     env["torch_version"] = torch.__version__
     if torch.cuda.is_available():
         env["cuda_available"] = True
-        env["cuda_version"] = torch.version.cuda
-        env["cudnn_version"] = torch.backends.cudnn.version()
+        env["cuda_version"] = torch.version.cuda or "unknown"
+        env["cudnn_version"] = str(torch.backends.cudnn.version())
         env["gpu_count"] = torch.cuda.device_count()
         env["gpu_names"] = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
     else:

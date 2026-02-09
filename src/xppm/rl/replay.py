@@ -21,7 +21,9 @@ class ReplayBuffer:
 
     def sample(self, batch_size: int) -> dict[str, np.ndarray]:
         """Sample batch with controlled RNG for reproducibility."""
-        idx = self.rng.integers(0, len(self.states), size=batch_size)
+        # Ensure RNG is initialized (mypy safety check)
+        rng = self.rng if self.rng is not None else np.random.default_rng()
+        idx = rng.integers(0, len(self.states), size=batch_size)
         return {
             "states": self.states[idx],
             "actions": self.actions[idx],
