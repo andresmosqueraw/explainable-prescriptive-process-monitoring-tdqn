@@ -10,3 +10,15 @@ def project_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture
+def tiny_log_path(project_root: Path) -> Path:
+    """Path to tiny synthetic event log for testing."""
+    return project_root / "tests" / "data" / "tiny_log.csv"
+
+
+@pytest.fixture
+def tmp_outdir(tmp_path: Path) -> Path:
+    """Temporary output directory for test artifacts."""
+    d = tmp_path / "out"
+    d.mkdir()
+    return d

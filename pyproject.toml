@@ -7,6 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "pandas",
+    "pyarrow",  # Required for parquet support
     "pyyaml",
     "scikit-learn",
     "torch",
@@ -33,5 +34,3 @@ tracking = [
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
-
-
