@@ -20,14 +20,23 @@ def test_encode_prefixes_shapes(tiny_log_path, tmp_outdir):
     # Load output
     data = load_npz(prefixes_path)
 
-    assert "prefixes" in data, "Output should contain 'prefixes' key"
-    prefixes = data["prefixes"]
+    # Check required keys
+    required_keys = ["X", "mask", "case_ptr", "t_ptr"]
+    for key in required_keys:
+        assert key in data, f"Output should contain '{key}' key"
 
-    assert isinstance(prefixes, np.ndarray), "Prefixes should be numpy array"
-    assert prefixes.ndim >= 1, "Prefixes should have at least 1 dimension"
-    assert len(prefixes) > 0, "Should have at least one prefix"
+    X = data["X"]
+    mask = data["mask"]
 
-    # Check dtype is reasonable
-    assert np.issubdtype(prefixes.dtype, np.integer) or np.issubdtype(
-        prefixes.dtype, np.floating
-    ), f"Prefixes dtype {prefixes.dtype} should be numeric"
+    assert isinstance(X, np.ndarray), "X should be numpy array"
+    assert X.ndim == 2, "X should be 2D [N_prefixes, max_len]"
+    assert len(X) > 0, "Should have at least one prefix"
+
+    assert isinstance(mask, np.ndarray), "mask should be numpy array"
+    assert mask.shape == X.shape, "mask should have same shape as X"
+
+    # Check dtypes
+    assert np.issubdtype(X.dtype, np.integer), f"X dtype {X.dtype} should be integer"
+    assert (
+        mask.dtype == np.uint8 or mask.dtype == np.bool_
+    ), f"mask dtype {mask.dtype} should be uint8 or bool"

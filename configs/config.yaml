@@ -98,12 +98,30 @@ validation_split:
 
 encoding:
   method: "sequence"          # sequence (transformer) | tabular
-  prefix_len: 50              # trunc/pad
+  max_len: 50                 # maximum prefix length (trunc/pad)
+  min_prefix_len: 1           # minimum prefix length to generate
+  truncation: left            # left = keep last max_len events, right = keep first max_len
+  padding: left               # left or right padding
+  vocab:
+    min_freq: 1               # minimum frequency to include token
+    max_size: null            # maximum vocabulary size (null = no limit)
+    add_unk: true             # add UNK token
+    add_pad: true             # add PAD token
+  fields:
+    activity_col: activity    # column name for activities
+    resource_col: null         # optional resource column
+    use_resource: false        # whether to include resource in encoding
+  output:
+    prefixes_path: data/interim/prefixes.npz
+    vocab_activity_path: data/interim/vocab_activity.json
+    vocab_resource_path: null  # optional
+  # Legacy fields (for backward compatibility)
+  prefix_len: 50              # alias for max_len
   pad_token: "<PAD>"
   unk_token: "<UNK>"
   build_prefixes:
-    out_prefixes_npy: "prefixes.npy"
-    out_vocab_json: "vocab.json"
+    out_prefixes_npy: "prefixes.npz"  # updated to npz
+    out_vocab_json: "vocab_activity.json"
   event_embedding:
     activity_vocab_min_freq: 1
     use_time_deltas: true
