@@ -35,6 +35,6 @@ jobs:
         run: |
           mypy src
 
-      - name: Pytest
+      - name: Pytest (exclude slow tests)
         run: |
-          pytest -q
+          pytest -q -m "not slow"

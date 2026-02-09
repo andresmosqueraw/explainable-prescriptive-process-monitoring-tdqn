@@ -94,6 +94,46 @@ dvc push
 
 See `dvc.yaml` for the full pipeline definition.
 
+**Note on `propensity` field in `D_offline.npz`:**
+The `propensity` field (behavior policy μ(a|s)) is set to `-1.0` as a placeholder
+during dataset building. It will be estimated in `05_run_ope_dr.py` using
+`behavior_model.py`. See `configs/schemas/offline_rlset.schema.json` for details.
+
+## Building MDP Dataset (Step 3)
+
+### Regenerate real dataset (official command)
+
+To rebuild the MDP dataset from scratch (requires `--overwrite` flag):
+
+```bash
+python scripts/03_build_mdp_dataset.py --config configs/config.yaml --overwrite
+```
+
+**Important:** The `--overwrite` flag is required to prevent accidental overwrites
+of real datasets. This ensures you explicitly confirm when regenerating.
+
+### Validate inputs without building (dry-run)
+
+To validate that all input files exist and config is correct without building:
+
+```bash
+python scripts/03_build_mdp_dataset.py --config configs/config.yaml --dry-run
+```
+
+This checks:
+- Prefixes file exists (`data/interim/prefixes.npz`)
+- Clean log exists (`data/interim/clean.parquet`)
+- Vocabulary exists (`data/interim/vocab_activity.json`)
+- Config is valid
+
+### First-time build (no overwrite needed)
+
+If the output file doesn't exist, you can build without `--overwrite`:
+
+```bash
+python scripts/03_build_mdp_dataset.py --config configs/config.yaml
+```
+
 ## Experiment tracking
 
 Configure tracking in `configs/config.yaml`:

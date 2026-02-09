@@ -1,15 +1,95 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "OfflineRLSet",
-  "type": "object",
-  "properties": {
-    "states": { "type": "array" },
-    "actions": { "type": "array" },
-    "rewards": { "type": "array" },
-    "next_states": { "type": "array" },
-    "dones": { "type": "array" }
+  "dataset_name": "D_offline",
+  "version": "1.0",
+  "n_transitions": 8,
+  "max_len": 10,
+  "n_actions": 2,
+  "arrays": {
+    "s": {
+      "dtype": "int32",
+      "shape": [
+        "N",
+        10
+      ],
+      "desc": "prefix token ids"
+    },
+    "s_mask": {
+      "dtype": "uint8",
+      "shape": [
+        "N",
+        10
+      ],
+      "desc": "1 real, 0 pad"
+    },
+    "a": {
+      "dtype": "int32",
+      "shape": [
+        "N"
+      ],
+      "desc": "behavior action id"
+    },
+    "r": {
+      "dtype": "float32",
+      "shape": [
+        "N"
+      ],
+      "desc": "reward (delayed terminal)"
+    },
+    "s_next": {
+      "dtype": "int32",
+      "shape": [
+        "N",
+        10
+      ]
+    },
+    "s_next_mask": {
+      "dtype": "uint8",
+      "shape": [
+        "N",
+        10
+      ]
+    },
+    "done": {
+      "dtype": "uint8",
+      "shape": [
+        "N"
+      ]
+    },
+    "valid_actions": {
+      "dtype": "uint8",
+      "shape": [
+        "N",
+        2
+      ],
+      "desc": "action mask"
+    },
+    "behavior_action": {
+      "dtype": "int32",
+      "shape": [
+        "N"
+      ],
+      "desc": "behavior action id (redundant with a)"
+    },
+    "propensity": {
+      "dtype": "float32",
+      "shape": [
+        "N"
+      ],
+      "desc": "behavior propensity μ(a|s). Set to -1.0 as placeholder during dataset building. Will be estimated in 05_run_ope_dr.py using behavior_model.py"
+    },
+    "case_ptr": {
+      "dtype": "int32",
+      "shape": [
+        "N"
+      ]
+    },
+    "t_ptr": {
+      "dtype": "int32",
+      "shape": [
+        "N"
+      ]
+    }
   },
-  "required": ["states", "actions", "rewards", "next_states", "dones"]
+  "reward_definition": "0 for non-terminal, outcome(case) at terminal",
+  "decision_points": "all"
 }
-
-

@@ -131,31 +131,34 @@ encoding:
     include_numeric_case_feats: true
 
 mdp:
-  # define decision points + action width/depth
+  # Decision points for time_contact_HQ intervention
   decision_points:
-    mode: "activity_based"      # activity_based | every_step | custom
-    allowed_activities: null
+    mode: "all"  # all = every prefix is a decision point (for time_contact_HQ)
+    # Alternative: by_last_activity with specific activities
+    # mode: "by_last_activity"
+    # activities: ["start_standard", "validate_application", "email_customer", "call_customer"]
+  # Actions for time_contact_HQ: do_nothing or contact_headquarters
   actions:
-    # ejemplo: [NOOP, procedure_A, procedure_B, set_rate_low, set_rate_high, contact_HQ]
-    action_list: ["NOOP", "PROC_A", "PROC_B", "RATE_LOW", "RATE_HIGH", "HQ_CONTACT"]
-    noop_action: "NOOP"
+    id2name: ["do_nothing", "contact_headquarters"]
+    noop_action: "do_nothing"
+  # Action mask: which actions are valid at each decision point
   action_mask:
-    enabled: true
-    rules:
-      # reglas de validez (ejemplo)
-      - if_activity_in: ["START"]
-        valid_actions: ["NOOP", "PROC_A", "PROC_B"]
-      - if_activity_in: ["RISK_REVIEW"]
-        valid_actions: ["NOOP", "HQ_CONTACT"]
-      - default_valid_actions: ["NOOP"]
+    default_valid: ["do_nothing"]
+    by_last_activity:
+      "start_standard": ["do_nothing", "contact_headquarters"]
+      "validate_application": ["do_nothing", "contact_headquarters"]
+      "email_customer": ["do_nothing", "contact_headquarters"]
+      "call_customer": ["do_nothing", "contact_headquarters"]
+  # Reward: terminal delayed (outcome at end of case)
   reward:
-    type: "terminal"             # terminal | dense
-    terminal_profit:
-      interest_revenue_col: "interest_rev"
-      operational_cost_col: "op_cost"
-      capital_cost_col: "cap_cost"
-      risk_adjusted: true
-    discount_gamma: 0.99
+    type: "terminal_profit_delayed"
+    intermediate_reward: 0.0
+    terminal_column: "outcome"  # Column in clean.parquet with final profit
+  # Output configuration
+  output:
+    path: "data/processed/D_offline.npz"
+    schema_path: "configs/schemas/offline_rlset.schema.json"
+  # Legacy fields
   build_offline_rlset:
     out_npz: "D_offline.npz"
     store_next_state: true

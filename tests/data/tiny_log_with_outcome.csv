@@ -1,0 +1,12 @@
+case_id,activity,timestamp,outcome
+1,start_standard,2020-01-01T00:00:00,10.0
+1,validate_application,2020-01-01T00:10:00,10.0
+1,contact_headquarters,2020-01-01T00:20:00,10.0
+1,complete,2020-01-01T00:30:00,10.0
+2,start_standard,2020-01-01T01:00:00,5.0
+2,validate_application,2020-01-01T01:10:00,5.0
+2,complete,2020-01-01T01:20:00,5.0
+3,start_standard,2020-01-01T02:00:00,15.0
+3,validate_application,2020-01-01T02:10:00,15.0
+3,email_customer,2020-01-01T02:20:00,15.0
+3,complete,2020-01-01T02:30:00,15.0

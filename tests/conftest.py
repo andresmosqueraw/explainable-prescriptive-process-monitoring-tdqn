@@ -17,6 +17,12 @@ def tiny_log_path(project_root: Path) -> Path:
 
 
 @pytest.fixture
+def tiny_log_with_outcome_path(project_root: Path) -> Path:
+    """Path to tiny synthetic event log with outcome for testing."""
+    return project_root / "tests" / "data" / "tiny_log_with_outcome.csv"
+
+
+@pytest.fixture
 def tmp_outdir(tmp_path: Path) -> Path:
     """Temporary output directory for test artifacts."""
     d = tmp_path / "out"
