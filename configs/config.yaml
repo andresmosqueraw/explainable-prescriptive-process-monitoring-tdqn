@@ -271,6 +271,10 @@ xai:
 
 fidelity:
   enabled: true
+  seed: 123                    # Random seed for reproducibility
+  p_remove: [0.1, 0.2, 0.3, 0.5]  # Removal percentages for Q-drop and action-flip
+  n_random: 20                 # Number of random repetitions (use 5 for smoke test)
+  n_items: null                # Limit items for smoke test (null = all)
   tests:
     q_drop:
       enabled: true
@@ -283,7 +287,7 @@ fidelity:
       enabled: true
       metrics: ["spearman", "kendall"]
       compare: ["q_rank", "ope_rank"]
-  out_csv: "fidelity/fidelity.csv"
+  out_csv: "artifacts/fidelity/fidelity.csv"
 
 distill:
   enabled: true
