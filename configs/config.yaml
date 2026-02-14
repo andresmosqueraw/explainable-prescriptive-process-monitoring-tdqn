@@ -291,14 +291,16 @@ fidelity:
 
 distill:
   enabled: true
-  teacher_checkpoint: "artifacts/checkpoints/Q_theta.ckpt"
+  seed: 42                   # Random seed for reproducibility
+  teacher_checkpoint: "artifacts/models/tdqn/20260209_191903/Q_theta.ckpt"
   method: "viper"            # viper | behavioral_cloning
   surrogate:
     type: "decision_tree"    # decision_tree | rule_list
-    max_depth: 6
-    min_samples_leaf: 50
+    max_depth: 5             # Tree depth (4-6 recommended for auditability)
+    min_samples_leaf: 50      # Min samples per leaf
+    min_samples_split: 100   # Min samples to split
   sample:
-    n_states: 200000
+    n_states: 2000            # Total states (70% common + 30% high-impact)
     prioritize_by_value: true
     value_quantile: 0.8
   out_dir: "distill"
