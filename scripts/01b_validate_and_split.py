@@ -27,6 +27,12 @@ def main() -> None:
     )
     parser.add_argument("--config", type=str, default="configs/config.yaml")
     parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Dataset name. Loads configs/datasets/{name}.yaml on top of --config.",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Overwrite existing output file if it exists (use with caution)",
@@ -39,7 +45,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Load config
-    config_obj = Config.from_yaml(args.config)
+    config_obj = Config.for_dataset(args.config, args.dataset)
     cfg = config_obj.raw
 
     # Setup reproducibility

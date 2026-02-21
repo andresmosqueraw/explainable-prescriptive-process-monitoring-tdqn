@@ -1,0 +1,33 @@
+# SimBank dataset-specific configuration overlay.
+# Deep-merged on top of configs/config.yaml when --dataset simbank is passed.
+# Only keys that differ from the base config need to be listed here.
+
+# Raw data location
+data:
+  raw_path: "data/raw/loan_log_[_time_contact_HQ_]_100000_train_normal"
+  output_clean_path: "data/{dataset_name}/interim/clean.parquet"
+
+# Schema mapping: SimBank uses 'case_nr' instead of 'case_id'
+schema:
+  case_id: "case_nr"
+  activity: "activity"
+  timestamp: "timestamp"
+
+# MDP: trigger activity for intervention detection
+mdp:
+  behavior_trigger_activity: "contact_headquarters"
+  actions:
+    id2name: ["do_nothing", "contact_headquarters"]
+    noop_action: "do_nothing"
+  reward:
+    type: "terminal_profit_delayed"
+    intermediate_reward: 0.0
+    terminal_column: "outcome"
+  output:
+    path: "data/{dataset_name}/processed/D_offline.npz"
+
+# Encoding output paths
+encoding:
+  output:
+    prefixes_path: "data/{dataset_name}/interim/prefixes.npz"
+    vocab_activity_path: "data/{dataset_name}/interim/vocab_activity.json"

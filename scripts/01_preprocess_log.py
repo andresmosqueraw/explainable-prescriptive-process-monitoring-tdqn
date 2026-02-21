@@ -22,10 +22,16 @@ logger = get_logger(__name__)
 def main() -> None:
     parser = argparse.ArgumentParser(description="Preprocess event log (Phase 1 - Step 1)")
     parser.add_argument("--config", type=str, default="configs/config.yaml")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Dataset name. Loads configs/datasets/{name}.yaml on top of --config.",
+    )
     args = parser.parse_args()
 
     # Load config
-    config_obj = Config.from_yaml(args.config)
+    config_obj = Config.for_dataset(args.config, args.dataset)
     cfg = config_obj.raw
 
     # Setup reproducibility

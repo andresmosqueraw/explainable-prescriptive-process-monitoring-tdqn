@@ -1,0 +1,263 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,shapes.multipart,shapes.geometric,shadows}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{xcolor}
+
+\begin{document}
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tikzpicture}[
+    scale=0.55,
+    transform shape,
+    node distance=0.8cm and 1.5cm,
+    script/.style={rectangle, rounded corners, draw=black, thick,
+                   minimum width=2.8cm, minimum height=1.2cm,
+                   text width=2.6cm, align=center, font=\footnotesize\bfseries, drop shadow},
+    procstep/.style={rectangle, rounded corners, draw=black, fill=gray!10,
+                   minimum width=2.4cm, minimum height=0.6cm,
+                   text width=2.2cm, align=center, font=\tiny},
+    input/.style={rectangle, draw=blue!60, fill=blue!15,
+                   minimum width=1.7cm, minimum height=0.5cm,
+                   text width=1.5cm, align=center, font=\tiny},
+    output/.style={rectangle, draw=green!60, fill=green!15,
+                    minimum width=1.7cm, minimum height=0.5cm,
+                    text width=1.5cm, align=center, font=\tiny},
+    tool/.style={rectangle, draw=orange!60, fill=orange!15,
+                   minimum width=2.1cm, minimum height=0.6cm,
+                   text width=1.9cm, align=center, font=\tiny},
+    arrow/.style={->, >=stealth, semithick},
+    phase/.style={rectangle, draw=gray!40, fill=gray!8,
+                   minimum width=3.4cm, minimum height=0.55cm,
+                   font=\tiny\bfseries, align=center},
+    internal/.style={->, >=stealth, thin, gray!60},
+    dataset/.style={rectangle, draw=blue!80, fill=blue!20, thick, rounded corners,
+                   minimum width=3.2cm, minimum height=3.0cm,
+                   text width=3.0cm, align=left, font=\scriptsize},
+    implemented/.style={fill=green!20},
+    partial/.style={fill=yellow!20},
+    notimpl/.style={fill=red!20, dashed}
+  ]
+
+    % ===================== PHASE LABELS =====================
+    \node[phase] (p1) at (-16, 10) {PHASE 1: DATA $\rightarrow$ OFFLINE RLSET};
+    \node[phase] (p2) at (-2.5, 10)  {PHASE 2: OFFLINE RL TRAINING + OPE};
+    \node[phase] (p3) at (13, 10)  {PHASE 3: XAI + DISTILLATION + DEPLOY};
+
+    % ===================== PHASE 1 =====================
+    \node[dataset] (simbank) at (-22, 4) {
+      \textbf{Dataset: SimBank}\\
+      \textbf{(Synthetic Loan Process)}\\[1pt]
+      \textbf{Domain:} Loan Application\\Processing\\[1pt]
+      \textbf{KPI / Reward:}\\
+      Expected Profit = Interest Revenue $-$ Operational Cost $-$ Capital Cost (risk-adjusted)\\[1pt]
+      \textbf{Intervention Space:}\\
+      $\bullet$ Procedure selection\\
+      $\bullet$ Interest rate setting\\
+      $\bullet$ HQ contact timing\\[1pt]
+      \textbf{State Signals:}\\
+      amount, est\_quality, unc\_quality, cum\_cost, elapsed\_time, process prefix
+    };
+
+    \node[input] (logcsv) at (-18, 7.2) {Event Log\\\texttt{*.csv/xes}};
+    \node[input] (cfg)    at (-18, 5.6) {Config\\\texttt{config.yaml}};
+
+    \node[script, implemented] (prep) at (-15, 7.2) {\texttt{01\_preprocess\_log.py}};
+    \node[script, implemented] (encode) at (-15, 5.0) {\texttt{02\_encode\_prefixes.py}};
+    \node[script, implemented] (buildmdp) at (-15, 2.8) {\texttt{03\_build\_mdp\_dataset.py}\\
+    \scriptsize reward: terminal profit (delayed)};
+
+    \node[output] (cleanlog) at (-12, 7.2) {Clean Log\\\texttt{clean.parquet}};
+    \node[output] (prefixes) at (-12, 5.0) {Prefixes\\\texttt{prefixes.npz}};
+    \node[output] (rlset) at (-12, 2.8) {Offline RLSet\\\texttt{D\_offline.npz}};
+
+    \node[script, implemented] (validate) at (-15, 1.2) {\texttt{01b\_validate\_and\_split.py}\\
+    \scriptsize split by case-id\\
+    \scriptsize schema, ranges, drift checks};
+    \node[output] (splits) at (-11.5, 0.6) {Splits\\\texttt{splits.json}};
+
+    \draw[arrow, blue!70] (logcsv) -- node[midway, above] {1} (prep);
+    \draw[arrow, blue!70] (cfg) -- node[midway, above] {1} (prep);
+    \draw[arrow, green!70] (prep) -- node[midway, above] {2} (cleanlog);
+    \draw[arrow, red!70] (cleanlog) -- node[midway, above, font=\tiny] {3} (encode);
+    \draw[arrow, orange!70] (encode) -- node[midway, above] {4} (prefixes);
+    \draw[arrow, purple!70] (prefixes) -- node[midway, above, font=\tiny] {5} (buildmdp);
+    \draw[arrow, cyan!70] (buildmdp) -- node[midway, above] {6} (rlset);
+    \draw[arrow, cyan!70] (rlset) -- node[midway, above, font=\tiny] {6b} (validate);
+    \draw[arrow, green!70] (validate) -- node[midway, above] {6c} (splits);
+
+    % ===================== PHASE 2 =====================
+    \node[script, implemented] (train) at (-7.0, 4.3) {\texttt{04\_train\_tdqn\_offline.py}};
+    \node[tool] (gpu) at (-8.0, 6.0) {PyTorch\\GPU};
+    \node[output] (ckpt) at (-2.2, 5.8) {Checkpoints\\\texttt{Q$_\theta$.ckpt}};
+
+    \draw[arrow, magenta!70] (gpu) -- node[midway, above] {7} (train);
+    \draw[arrow, magenta!70] (rlset.east) to[bend left=-20] node[midway, right, font=\tiny] {7. load offline transitions} ([yshift=-2mm]train.west);
+    \draw[arrow, yellow!70] (train) -- node[midway, above] {8} (ckpt);
+
+    % --- BIG BOX: OFFLINE RL CORE (inside training) ---
+    \node[rectangle, draw=red!80, ultra thick, fill=white,
+          minimum width=9.0cm, minimum height=4.8cm] (core) at (4.8, -4.2) {};
+    \node[anchor=north west, font=\footnotesize\bfseries, text=red!80] at (core.north west)
+      {OFFLINE TDQN CORE (Transformer Deep Q-Learning)};
+
+    \node[procstep, fill=orange!10] (encT) at (2.5, -2.8) {\textbf{Transformer Encoder}\\event embeddings $\rightarrow$ state $s_t$};
+    \node[procstep, fill=orange!10] (qnet) at (2.5, -4.0) {\textbf{Q-Network}\\$Q_\theta(s_t,a)$};
+    \node[procstep, fill=orange!10] (targets) at (4.0, -5.1) {\textbf{Targets}\\Double-DQN + target net\\
+    \scriptsize target update every K steps};
+    \node[procstep, fill=orange!10] (replay) at (6.2, -2.7) {\textbf{Offline replay buffer}\\
+    \scriptsize (optional: reweighting / balanced sampling)};
+    \node[procstep, fill=orange!10] (loss) at (6.2, -4.0) {\textbf{Loss}\\TD error + reg.\\
+    \scriptsize grad clip};
+    \node[procstep, fill=orange!10] (opt) at (7.2, -5.1) {\textbf{Optimizer}\\Adam + sched.};
+
+    \draw[internal, thick] (encT) -- (qnet);
+    \draw[internal, thick] (replay) to[bend left=10] (loss);
+    \draw[internal, thick] (targets) to[bend right=10] (loss);
+    \draw[internal, thick] (qnet) to[bend left=5] (loss);
+    \draw[internal, thick] (loss) -- (opt);
+    \draw[internal, thick] (opt) -- ++(0,-0.6) -| node[pos=0.25, below, font=\tiny] {update $\theta$} (qnet.south);
+
+    % --- OPE (Doubly Robust) ---
+    \node[script, implemented] (ope) at (-7.0, 1.8) {\texttt{05\_run\_ope\_dr.py}\\
+    \scriptsize Fit behavior model $\hat{\pi}_b(a|s)$};
+    \node[output] (operep) at (-2.2, 2.2) {OPE Report\\\texttt{ope\_dr.json}};
+
+    \draw[arrow, brown!70] (ckpt) to[bend left=15] node[midway, above, font=\tiny] {9} (ope);
+    \draw[arrow, brown!70] (rlset.east) to[bend right=-20] node[midway, above, font=\tiny] {9} ([yshift=-2mm]ope.west);
+    \draw[arrow, brown!60, dashed] (splits.east) to[bend left=50] node[pos=0.6, above, font=\tiny] {evaluate on held-out} (ope.west);
+    \draw[arrow, pink!70] (ope) -- node[midway, above] {10} (operep);
+
+    % ===================== PHASE 3 =====================
+    \node[script, implemented] (xai) at (3.4, 6.8) {\texttt{06\_explain\_policy.py}};
+    \node[script, implemented] (fidelity) at (3.4, 4.6) {\texttt{07\_fidelity\_tests.py}\\
+    \scriptsize Q-drop, action-flip,\\
+    \scriptsize rank-consistency (Spearman/Kendall): Q vs OPE\\
+    \scriptsize \textcolor{red}{⚠ counterfactual rollouts: NOT IMPLEMENTED}};
+    \node[script, implemented] (distill) at (3.4, 2) {\texttt{08\_distill\_policy.py}\\
+    \scriptsize Surrogate fit to Q / policy\\
+    \scriptsize (fidelity-constrained)};
+
+    \node[output] (xaiout) at (15.8, 6.8) {XAI Artifacts\\\texttt{risk\_explanations.json}\\
+    \texttt{ig\_grad\_attributions.npy}\\\texttt{deltaQ\_explanations.json}\\\texttt{policy\_summary.json}};
+    \node[output] (fidout) at (15.8, 4.6) {Fidelity Report\\\texttt{fidelity.csv}};
+    \node[output] (whitebox) at (15.8, 2.4) {White-box Surrogate\\\texttt{tree.pkl / rules.sql}\\
+    \scriptsize (fidelity-constrained)};
+
+    \node[procstep, fill=yellow!10] (riskexp) at (11.0, 8.2)
+    {\textbf{Risk explanation (why at risk)}\\
+    $V(s_t)=\max_a Q_\theta(s_t,a)$\\
+    attrib: IG/grad};
+
+    \node[procstep, fill=yellow!10] (intervexp) at (11.0, 5.8)
+    {\textbf{Intervention explanation}\\
+    contrast: $a^*$ vs $a'$, now vs delay\\
+    $\Delta Q = Q(s_t,a^*)-Q(s_t,a')$};
+
+    \node[procstep, fill=yellow!10] (polsum) at (11.0, 2.8)
+    {\textbf{Policy-level summary}\\
+    distill / cluster states\\
+    ``strategies'' + coverage};
+
+    \draw[internal, thick, yellow!60!black] (xai.east) to[bend left=15]
+node[pos=0.5, above, font=\tiny] {14a} (riskexp.west);
+    \draw[internal, thick, yellow!60!black] (xai.east) to[bend left=5]
+    node[pos=0.5, above, font=\tiny] {14a} (intervexp.west);
+    \draw[internal, thick, yellow!60!black] (xai.east) to[bend right=15]
+    node[pos=0.5, above, font=\tiny] {14a} (polsum.west);
+
+    \draw[internal, thick, violet!80] (fidelity.east) to[bend left=20]
+node[pos=0.7, above, font=\tiny] {15a. Q-drop / action-flip} (riskexp.west);
+    \draw[internal, thick, violet!80] (fidelity.east) to[bend left=5]
+    node[pos=0.7, above, font=\tiny] {15a. Q-drop / action-flip} (intervexp.west);
+    \draw[internal, thick, violet!80] (fidelity.east) to[bend right=20]
+    node[pos=0.7, above, font=\tiny] {15a. consistency} (polsum.west);
+
+    \draw[arrow, lime!70!black] (riskexp.east) to[bend left=30]
+node[pos=0.75, above, font=\tiny] {14b} (xaiout.west);
+    \draw[arrow, lime!70!black] (intervexp.east) to[bend left=60]
+    node[midway, above, font=\tiny] {14b} ([yshift=2mm]xaiout.west);
+    \draw[arrow, lime!70!black] (polsum.east) to[bend left=40]
+    node[pos=0.65, above, font=\tiny] {14b} ([yshift=-2mm]xaiout.west);
+
+    % Policy Guard + Fallback (safety)
+    \node[procstep, fill=red!20] (guard) at (20.0, 4.6) {\textbf{Policy Guard + Fallback}\\
+    \scriptsize guardrails, uncertainty threshold,\\
+    \scriptsize OOD fallback to baseline, human override};
+
+    % Policy API / Serving
+    \node[script, implemented] (policyapi) at (20.0, 0.8) {\texttt{policy\_server.py}\\
+    \scriptsize input/output schema\\
+    \scriptsize (pydantic / protobuf)};
+    \node[output] (schema) at (15.8, 0.8) {Schema\\\texttt{schema.json}};
+
+    % Stakeholder package
+    \node[rectangle, draw=green!60!black, fill=green!20, thick, rounded corners,
+          minimum width=3.0cm, minimum height=1.5cm, drop shadow, align=center, font=\footnotesize]
+          (deploy) at (24.2, 4.6)
+          {\textbf{DEPLOYABLE DSS}\\Policy + Explanations\\(low-latency)};
+
+    % Monitoring + Feedback log
+    \node[output, partial] (monitoring) at (24.2, 6.8) {Monitoring + Feedback\\
+    \texttt{coverage, drift, override rate,\\
+    expected gain vs baseline, alarms}\\
+    \scriptsize \textcolor{orange}{⚠ Partially implemented}};
+
+    % Inputs to XAI/Distill
+    \draw[arrow, teal!70] (ckpt.east) to[bend left=30] node[pos=0.75, above, font=\tiny] {11} (xai.west);
+    \draw[arrow, teal!70] (rlset.east) to[bend left=60] node[midway, above, font=\tiny] {11} ([yshift=2mm]xai.north);
+    \draw[arrow, teal!70] (operep.north) to[bend left=40] node[pos=0.65, above, font=\tiny] {11} ([yshift=-2mm]xai.west);
+
+    \draw[arrow, violet!70] (ckpt.east) to[bend left=35] node[pos=0.75, above, font=\tiny] {12} (fidelity.west);
+    \draw[arrow, violet!70] (rlset.east) to[bend left=-55] node[midway, above, font=\tiny] {12} ([yshift=2mm]fidelity.west);
+
+    \draw[arrow, olive!70] (ckpt.east) to[bend right=25] node[pos=0.75, above, font=\tiny] {13} (distill.west);
+    \draw[arrow, olive!70] (rlset.south) to[bend left=-30] node[midway, below, font=\tiny] {13} ([yshift=-1mm]distill.south);
+
+    % Outputs
+    \draw[arrow, navy!70] (fidelity) -- node[midway, above] {15b} (fidout);
+    \draw[arrow, maroon!70, ultra thick] (distill) to[bend right=15] node[midway, above, font=\tiny\bfseries] {16. export rules} (whitebox);
+
+    % Package to Policy Guard + API
+    \draw[arrow, gray!70, thick] (xaiout) -- node[pos=0.7, above, font=\tiny] {17} ([yshift=3mm]guard.west);
+    \draw[arrow, gray!70, thick] (fidout) -- ++(0.8,0) |- node[pos=0.7, above, font=\tiny] {17} (guard.west);
+    \draw[arrow, gray!70, ultra thick] (whitebox) -- node[pos=0.7, below, font=\tiny\bfseries] {17} ([yshift=-3mm]guard.west);
+
+    % Guard to API to Deploy
+    \draw[arrow, green!70, thick] (guard.south) -- node[midway, right, font=\tiny] {18} (policyapi.north);
+    \draw[arrow, green!70] (policyapi) -- node[midway, above] {19} (schema);
+    \draw[arrow, green!70, ultra thick] (guard.east) -- node[midway, above, font=\tiny\bfseries] {18} (deploy.west);
+
+    % Deploy to Monitoring (telemetry)
+    \draw[arrow, blue!70, dashed] (deploy.north) -- node[midway, right, font=\tiny] {telemetry} (monitoring.south);
+
+    % Legend
+    \node[anchor=north east, font=\tiny, align=right] at (19.0, 10.0) {
+        \textbf{Legend:}\\
+        \textcolor{green!80}{$\blacksquare$} Implemented\\
+        \textcolor{yellow!80}{$\blacksquare$} Partially implemented\\
+        \textcolor{red!80}{$\blacksquare$} Not implemented\\
+        \textcolor{blue!80}{$\blacksquare$} Data/IO\\
+        \textcolor{purple!80}{$\blacksquare$} Offline RL + OPE\\
+        \textcolor{yellow!80}{$\blacksquare$} XAI + Fidelity\\
+        \textcolor{orange!80}{$\blacksquare$} Distillation/Rules
+    };
+
+  \end{tikzpicture}
+  }
+
+  \caption{
+\textbf{End-to-end implementation architecture (ACTUAL STATE) for Explainable Prescriptive Process Monitoring with Transformer Deep Q-Learning.}
+Green boxes = fully implemented, Yellow = partially implemented, Red = not implemented.
+Phase 1 builds an offline RL dataset from event logs. Phase 2 trains an offline TDQN policy and evaluates it with doubly robust OPE. Phase 3 produces explanations (risk, deltaQ, policy summary), runs fidelity tests (Q-drop, action-flip, rank-consistency), and distills to a decision tree surrogate. The system is deployed via FastAPI with policy guard and monitoring (partially implemented). \textbf{Note:} Counterfactual rollouts mentioned in fidelity tests are not yet implemented.
+} \label{fig:code_architecture_actual}
+\end{figure}
+
+\end{document}

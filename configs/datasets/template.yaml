@@ -1,0 +1,69 @@
+# Template for adding a new dataset.
+# Copy this file to configs/datasets/<your_dataset_name>.yaml and fill in the values.
+# Only override keys that differ from configs/config.yaml; the rest inherits from base.
+#
+# Usage:
+#   cp configs/datasets/template.yaml configs/datasets/mybpic.yaml
+#   # edit mybpic.yaml
+#   ./scripts/run_pipeline.sh --dataset mybpic
+
+# ---------------------------------------------------------------------------
+# Raw data location
+# ---------------------------------------------------------------------------
+data:
+  # Path to the raw event log (CSV, XES, or pickle)
+  raw_path: "data/raw/<your_dataset>/your_log.csv"
+  # Where the cleaned parquet lands (use {dataset_name} to stay namespaced)
+  output_clean_path: "data/{dataset_name}/interim/clean.parquet"
+  # Format: csv | xes | pickle | auto
+  format: "csv"
+
+# ---------------------------------------------------------------------------
+# Column schema mapping
+# Rename log columns to the canonical names expected by the pipeline.
+# ---------------------------------------------------------------------------
+schema:
+  case_id: "case:concept:name"   # column that holds the case identifier
+  activity: "concept:name"        # column that holds the activity label
+  timestamp: "time:timestamp"     # column that holds the event timestamp
+
+# ---------------------------------------------------------------------------
+# MDP configuration
+# ---------------------------------------------------------------------------
+mdp:
+  # Name of the activity in the log that corresponds to the intervention action.
+  # The pipeline looks at the NEXT event after each prefix; if it matches this
+  # activity the behavior action is set to the intervention action, otherwise NOOP.
+  behavior_trigger_activity: "your_intervention_activity"
+
+  actions:
+    # List of action names in order (index = action ID).
+    # The first action is usually the do-nothing / NOOP action.
+    id2name: ["do_nothing", "your_intervention_activity"]
+    noop_action: "do_nothing"
+
+  reward:
+    # Reward type (currently only terminal_profit_delayed is supported)
+    type: "terminal_profit_delayed"
+    # Reward for non-terminal steps
+    intermediate_reward: 0.0
+    # Column in clean.parquet that holds the terminal reward / outcome value
+    terminal_column: "outcome"
+
+  output:
+    path: "data/{dataset_name}/processed/D_offline.npz"
+
+# ---------------------------------------------------------------------------
+# Encoding output paths (keep namespaced with {dataset_name})
+# ---------------------------------------------------------------------------
+encoding:
+  output:
+    prefixes_path: "data/{dataset_name}/interim/prefixes.npz"
+    vocab_activity_path: "data/{dataset_name}/interim/vocab_activity.json"
+
+# ---------------------------------------------------------------------------
+# Optional: additional numeric / categorical features
+# ---------------------------------------------------------------------------
+# numeric_cols: ["amount", "elapsed_time"]
+# categorical_cols: ["activity"]
+# drop_cols: []

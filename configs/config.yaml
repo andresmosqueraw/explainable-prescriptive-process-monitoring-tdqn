@@ -2,6 +2,9 @@ project:
   name: xppm-tdqn
   run_name: "simbank_tdqn_seed42"
 
+# Default dataset — overridden by --dataset CLI arg or configs/datasets/<name>.yaml overlay
+dataset_name: "simbank"
+
 # Reproducibility settings
 repro:
   seed: 42
@@ -21,15 +24,16 @@ tracking:
   log_config: true
 
 paths:
-  data_raw: "data/raw/loan_log_[_time_contact_HQ_]_100000_train_normal"
-  data_interim_dir: "data/interim"
-  data_processed_dir: "data/processed"
+  # {dataset_name} is substituted automatically by Config.for_dataset()
+  data_interim_dir: "data/{dataset_name}/interim"
+  data_processed_dir: "data/{dataset_name}/processed"
   artifacts_dir: "artifacts"
 
 data:
   format: pickle      # csv | xes | pickle
+  # raw_path and output_clean_path are set in configs/datasets/<name>.yaml
   raw_path: "data/raw/loan_log_[_time_contact_HQ_]_100000_train_normal"
-  output_clean_path: "data/interim/clean.parquet"
+  output_clean_path: "data/{dataset_name}/interim/clean.parquet"
 
 # Schema mapping for SimBank logs (case_nr -> case_id)
 schema:
@@ -112,8 +116,8 @@ encoding:
     resource_col: null         # optional resource column
     use_resource: false        # whether to include resource in encoding
   output:
-    prefixes_path: data/interim/prefixes.npz
-    vocab_activity_path: data/interim/vocab_activity.json
+    prefixes_path: "data/{dataset_name}/interim/prefixes.npz"
+    vocab_activity_path: "data/{dataset_name}/interim/vocab_activity.json"
     vocab_resource_path: null  # optional
   # Legacy fields (for backward compatibility)
   prefix_len: 50              # alias for max_len
@@ -131,6 +135,9 @@ encoding:
     include_numeric_case_feats: true
 
 mdp:
+  # Activity in the event log that identifies the intervention action.
+  # Overridden per dataset in configs/datasets/<name>.yaml.
+  behavior_trigger_activity: "contact_headquarters"
   # Decision points for time_contact_HQ intervention
   decision_points:
     mode: "all"  # all = every prefix is a decision point (for time_contact_HQ)
@@ -156,7 +163,7 @@ mdp:
     terminal_column: "outcome"  # Column in clean.parquet with final profit
   # Output configuration
   output:
-    path: "data/processed/D_offline.npz"
+    path: "data/{dataset_name}/processed/D_offline.npz"
     schema_path: "configs/schemas/offline_rlset.schema.json"
   # Legacy fields
   build_offline_rlset:

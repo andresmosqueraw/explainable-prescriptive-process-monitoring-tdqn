@@ -43,6 +43,12 @@ def main() -> None:
     )
     parser.add_argument("--config", type=str, default="configs/config.yaml")
     parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Dataset name. Loads configs/datasets/{name}.yaml on top of --config.",
+    )
+    parser.add_argument(
         "--ckpt",
         type=str,
         default=None,
@@ -74,7 +80,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    config_obj = Config.from_yaml(args.config)
+    config_obj = Config.for_dataset(args.config, args.dataset)
     cfg = config_obj.raw
 
     # Resolve dataset (D_offline.npz) and splits.json from config

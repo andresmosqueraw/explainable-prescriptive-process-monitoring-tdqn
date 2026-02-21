@@ -16,6 +16,12 @@ def main() -> None:
     parser.add_argument(
         "--config", type=str, default="configs/config.yaml", help="Config file path"
     )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Dataset name. Loads configs/datasets/{name}.yaml on top of --config.",
+    )
     parser.add_argument("--ckpt", type=str, default=None, help="Checkpoint path (overrides config)")
     parser.add_argument(
         "--n-states", type=int, default=None, help="Number of states (overrides config)"
@@ -35,7 +41,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    cfg_obj = Config.from_yaml(args.config)
+    cfg_obj = Config.for_dataset(args.config, args.dataset)
     cfg = cfg_obj.raw
 
     # Override config with CLI args

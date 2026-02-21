@@ -24,10 +24,16 @@ def main() -> None:
         description="Encode prefixes from clean log (Phase 1 - Step 2)"
     )
     parser.add_argument("--config", type=str, default="configs/config.yaml")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Dataset name. Loads configs/datasets/{name}.yaml on top of --config.",
+    )
     args = parser.parse_args()
 
     # Load config
-    config_obj = Config.from_yaml(args.config)
+    config_obj = Config.for_dataset(args.config, args.dataset)
     cfg = config_obj.raw
 
     # Setup reproducibility

@@ -1,78 +1,95 @@
 stages:
   preprocess:
-    cmd: python scripts/01_preprocess_log.py --config configs/config.yaml
+    cmd: python scripts/01_preprocess_log.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/01_preprocess_log.py
       - configs/config.yaml
       - data/raw
+    params:
+      - params.yaml:
+          - dataset_name
     outs:
-      - data/interim/clean.parquet
+      - data/${dataset_name}/interim/clean.parquet
 
   validate_split:
-    cmd: python scripts/01b_validate_and_split.py --config configs/config.yaml
+    cmd: python scripts/01b_validate_and_split.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/01b_validate_and_split.py
       - configs/config.yaml
-      - data/interim/clean.parquet
+      - data/${dataset_name}/interim/clean.parquet
+    params:
+      - params.yaml:
+          - dataset_name
     outs:
-      - data/processed/splits.json
+      - data/${dataset_name}/processed/splits.json
     metrics:
       - artifacts/reports/validation.json:
           cache: false
 
   encode_prefixes:
-    cmd: python scripts/02_encode_prefixes.py --config configs/config.yaml
+    cmd: python scripts/02_encode_prefixes.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/02_encode_prefixes.py
       - configs/config.yaml
-      - data/interim/clean.parquet
-      - data/processed/splits.json
+      - data/${dataset_name}/interim/clean.parquet
+      - data/${dataset_name}/processed/splits.json
+    params:
+      - params.yaml:
+          - dataset_name
     outs:
-      - data/interim/prefixes.npy
-      - data/interim/vocab.json
+      - data/${dataset_name}/interim/prefixes.npz
+      - data/${dataset_name}/interim/vocab_activity.json
 
   build_rlset:
-    cmd: python scripts/03_build_mdp_dataset.py --config configs/config.yaml
+    cmd: python scripts/03_build_mdp_dataset.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/03_build_mdp_dataset.py
       - configs/config.yaml
-      - data/interim/clean.parquet
-      - data/interim/prefixes.npy
-      - data/processed/splits.json
+      - data/${dataset_name}/interim/clean.parquet
+      - data/${dataset_name}/interim/prefixes.npz
+      - data/${dataset_name}/processed/splits.json
+    params:
+      - params.yaml:
+          - dataset_name
     outs:
-      - data/processed/D_offline.npz
+      - data/${dataset_name}/processed/D_offline.npz
 
   train_tdqn:
-    cmd: python scripts/04_train_tdqn_offline.py --config configs/config.yaml
+    cmd: python scripts/04_train_tdqn_offline.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/04_train_tdqn_offline.py
       - configs/config.yaml
-      - data/processed/D_offline.npz
-      - data/processed/splits.json
+      - data/${dataset_name}/processed/D_offline.npz
+      - data/${dataset_name}/processed/splits.json
+    params:
+      - params.yaml:
+          - dataset_name
+          - seed
+          - training.batch_size
+          - training.max_steps
+          - training.lr
+          - training.gamma
+          - transformer.d_model
+          - transformer.n_heads
+          - transformer.n_layers
     outs:
       - artifacts/checkpoints/Q_theta.ckpt
     metrics:
       - artifacts/metrics/train.json:
           cache: false
-    params:
-      - seed
-      - training.batch_size
-      - training.max_steps
-      - training.lr
-      - training.gamma
-      - transformer.d_model
-      - transformer.n_heads
-      - transformer.n_layers
 
 
   ope_dr:
-    cmd: python scripts/05_run_ope_dr.py --config configs/config.yaml
+    cmd: python scripts/05_run_ope_dr.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/05_run_ope_dr.py
       - configs/config.yaml
       - artifacts/checkpoints/Q_theta.ckpt
-      - data/processed/D_offline.npz
-      - data/processed/splits.json
+      - data/${dataset_name}/processed/D_offline.npz
+      - data/${dataset_name}/processed/splits.json
+    params:
+      - params.yaml:
+          - dataset_name
     outs:
       - artifacts/ope/ope_dr.json
     metrics:
@@ -80,26 +97,32 @@ stages:
           cache: false
 
   explain_policy:
-    cmd: python scripts/06_explain_policy.py --config configs/config.yaml
+    cmd: python scripts/06_explain_policy.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/06_explain_policy.py
       - configs/config.yaml
       - artifacts/checkpoints/Q_theta.ckpt
-      - data/processed/D_offline.npz
-      - data/processed/splits.json
+      - data/${dataset_name}/processed/D_offline.npz
+      - data/${dataset_name}/processed/splits.json
       - artifacts/ope/ope_dr.json
+    params:
+      - params.yaml:
+          - dataset_name
     outs:
       - artifacts/xai
 
   fidelity_tests:
-    cmd: python scripts/07_fidelity_tests.py --config configs/config.yaml
+    cmd: python scripts/07_fidelity_tests.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/07_fidelity_tests.py
       - configs/config.yaml
       - artifacts/checkpoints/Q_theta.ckpt
-      - data/processed/D_offline.npz
-      - data/processed/splits.json
+      - data/${dataset_name}/processed/D_offline.npz
+      - data/${dataset_name}/processed/splits.json
       - artifacts/xai
+    params:
+      - params.yaml:
+          - dataset_name
     outs:
       - artifacts/fidelity/fidelity.csv
     metrics:
@@ -107,12 +130,15 @@ stages:
           cache: false
 
   distill_policy:
-    cmd: python scripts/08_distill_policy.py --config configs/config.yaml
+    cmd: python scripts/08_distill_policy.py --config configs/config.yaml --dataset ${dataset_name}
     deps:
       - scripts/08_distill_policy.py
       - configs/config.yaml
       - artifacts/checkpoints/Q_theta.ckpt
-      - data/processed/D_offline.npz
-      - data/processed/splits.json
+      - data/${dataset_name}/processed/D_offline.npz
+      - data/${dataset_name}/processed/splits.json
+    params:
+      - params.yaml:
+          - dataset_name
     outs:
       - artifacts/distill

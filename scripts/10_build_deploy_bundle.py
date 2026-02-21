@@ -199,6 +199,12 @@ if __name__ == "__main__":
         help="Fidelity CSV",
     )
     parser.add_argument("--config", default="configs/config.yaml", help="Config file")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Dataset name. Loads configs/datasets/{name}.yaml on top of --config.",
+    )
     parser.add_argument("--output-dir", default="artifacts/deploy/v1", help="Output directory")
 
     args = parser.parse_args()

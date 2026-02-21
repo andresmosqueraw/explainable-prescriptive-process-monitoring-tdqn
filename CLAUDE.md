@@ -54,7 +54,7 @@ dvc push     # upload artifacts to remote
 ### Two-layer structure: library (`src/xppm/`) vs CLI (`scripts/`)
 
 - `src/xppm/` — importable library with all logic, organized by domain
-- `scripts/01-08` — thin CLI entrypoints numbered to match the paper's phases, each calling into `src/xppm/`
+- `scripts/01-18` — thin CLI entrypoints numbered to match the paper's phases, each calling into `src/xppm/`
 
 ### Pipeline phases (data flows top-to-bottom)
 
@@ -65,18 +65,50 @@ dvc push     # upload artifacts to remote
 `D_offline.npz` + `splits.json` → `train_tdqn` → `Q_theta.ckpt` → `ope_dr` → `ope_dr.json`
 
 **Phase 3 — Explainability & Deployment:**
-`Q_theta.ckpt` → `explain_policy` (risk attributions, delta-Q, policy summary) → `fidelity_tests` → `distill_policy` (VIPER → decision tree) → `policy_server` (FastAPI + guard)
+`Q_theta.ckpt` → `explain_policy` (risk attributions, delta-Q, policy summary) → `fidelity_tests` → `distill_policy` (VIPER → decision tree) → `export_schema` → `build_deploy_bundle` → `test_deployment` → `policy_server` (FastAPI + guard)
+
+**Phase 4 — Production Monitoring (scripts 13-18):**
+`decisions.jsonl` → `compute_monitoring_metrics` → `detect_drift` → `send_alerts` → `consolidate_feedback` → `check_retraining_triggers` → `generate_dashboard`
+
+### Complete scripts inventory
+
+| Script | Purpose | Output |
+|--------|---------|--------|
+| `01_preprocess_log.py` | Clean event log | `data/interim/clean.parquet`, `artifacts/reports/ingest_report.json` |
+| `01b_validate_and_split.py` | Train/val/test split | `data/processed/splits.json`, `artifacts/reports/split_report.json` |
+| `02_encode_prefixes.py` | Tokenize prefixes | `data/interim/prefixes.npz`, `data/interim/vocab_activity.json` |
+| `03_build_mdp_dataset.py` | Build MDP tuples | `data/processed/D_offline.npz`, `artifacts/reports/mdp_build_report.json` |
+| `04_train_tdqn_offline.py` | Train TDQN | `artifacts/models/tdqn/{run_id}/Q_theta.ckpt`, `target_Q.ckpt`, `train_history.json` |
+| `05_run_ope_dr.py` | Off-policy eval | `artifacts/ope/ope_dr.json` |
+| `06_explain_policy.py` | Generate explanations | `artifacts/xai/{risk,deltaQ,ig_grad,policy_summary,explanations_selection}` |
+| `07_fidelity_tests.py` | Q-drop, action-flip | `artifacts/fidelity/fidelity.csv` |
+| `08_distill_policy.py` | VIPER distillation | `artifacts/distill/final/{tree.pkl, tree_rules.txt, rules.sql, fidelity_metrics.json}` |
+| `09_export_schema.py` | API schema | `artifacts/deploy/v1/schema.json` |
+| `10_build_deploy_bundle.py` | Bundle artifacts | `artifacts/deploy/v1/` (tree, metadata, fidelity, xai, versions) |
+| `11_test_deployment.py` | Smoke test bundle | reads from `artifacts/deploy/v1/` |
+| `13_compute_monitoring_metrics.py` | Daily metrics | `artifacts/monitoring/metrics_{date}.json`, `daily_metrics.csv` |
+| `14_detect_drift.py` | Drift detection | `artifacts/monitoring/drift_report.json` |
+| `15_send_alerts.py` | Alert dispatch | sends alerts based on monitoring |
+| `16_consolidate_feedback_to_offline_dataset.py` | Feedback loop | consolidated offline dataset |
+| `17_check_retraining_triggers.py` | Retrain triggers | retraining ticket JSONs |
+| `18_generate_dashboard.py` | Dashboard | monitoring dashboard |
+| `19_generate_results_figures.py` | Paper figures | Q-drop, distillation, latency plots |
+| `generate_fidelity_plots.py` | Fidelity plots | `artifacts/fidelity/{q_drop,action_flip,rank_consistency}_final.png` |
+| `policy_server.py` (scripts/) | Server wrapper | imports `xppm.serving.server` |
+
+Root-level `policy_server.py` is the full FastAPI implementation (uses `xppm.serve.*`).
 
 ### Key modules in `src/xppm/`
 
-- **`data/`** — preprocessing, prefix encoding (tokenization + padding), MDP dataset construction (states, actions, rewards, action masks), schema validation
-- **`rl/`** — TDQN training loop (`train_tdqn.py`), offline replay buffer, evaluation metrics
-- **`rl/models/`** — `transformer.py` (SimpleTransformerEncoder), `q_network.py` (MLP Q-head), `masking.py` (action mask → -inf on invalid actions)
-- **`ope/`** — behavior policy estimation (multiclass logistic regression), doubly robust estimator with bootstrap CIs
-- **`xai/`** — integrated gradients attributions, delta-Q contrastive explanations, fidelity tests (Q-drop, action-flip, rank-consistency), policy summary clustering
-- **`distill/`** — VIPER-style distillation to decision tree, rule export to SQL
-- **`serving/`** — FastAPI server, policy guard (uncertainty + OOD detection via Mahalanobis), fallback to no-op
-- **`utils/`** — config loading with SHA-256 hashing, I/O helpers (parquet/npz/json/yaml), seed management, experiment tracking (W&B/MLflow)
+- **`data/`** — `preprocess.py`, `encode_prefixes.py`, `build_mdp.py`, `validate_split.py`, `schemas.py`
+- **`rl/`** — `train_tdqn.py` (training loop), `replay.py` (offline buffer), `evaluation.py`
+- **`rl/models/`** — `transformer.py` (SimpleTransformerEncoder), `q_network.py` (MLP Q-head), `masking.py` (action mask → -inf)
+- **`ope/`** — `behavior_model.py` (frozen TDQN encoder + softmax head), `doubly_robust.py` (DR estimator + bootstrap CIs), `baselines.py`, `report.py`
+- **`xai/`** — `attributions.py` (integrated gradients), `explain_policy.py` (delta-Q contrastive), `fidelity_tests.py` (Q-drop, action-flip, rank-consistency), `policy_summary.py` (clustering)
+- **`distill/`** — `distill_policy.py` (DecisionTreeClassifier on stratified sample), `export_rules.py` (SQL export)
+- **`serve/`** — `guard.py` (uncertainty + OOD via z-score univariate), `logger.py` (decision logging), `schemas.py` (request/response models) — **active implementation**
+- **`serving/`** — `server.py`, `guard.py`, `schemas.py` — **legacy minimal wrappers**
+- **`utils/`** — `config.py` (SHA-256 hashing), `io.py` (parquet/npz/json/yaml), `seed.py`, `logging.py`
 
 ### Configuration
 

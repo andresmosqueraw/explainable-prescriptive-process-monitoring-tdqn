@@ -148,30 +148,31 @@ def extract_behavior_action_optimized(
     next_t: int,
     case_activity_map: dict[tuple[int, int], bool],
     action_names: list[str],
+    trigger_activity: str = "contact_headquarters",
 ) -> int:
     """Extract behavior action from log data (optimized version).
 
-    For time_contact_HQ:
-    - If event at position next_t-1 has activity 'contact_headquarters',
-      action = 'contact_headquarters'
-    - Otherwise, action = 'do_nothing'
+    If the event at position next_t-1 matches the trigger activity the
+    corresponding action is returned; otherwise the NOOP/do_nothing action
+    is returned.
 
     Args:
         case_id: Case ID
         current_t: Current prefix length (1-indexed)
         next_t: Next prefix length (1-indexed)
-        case_activity_map: Pre-computed map of (case_id, position) -> has_contact_headquarters
+        case_activity_map: Pre-computed map of (case_id, position) -> has_trigger_activity
         action_names: List of action names
+        trigger_activity: Activity name that signals the intervention action
 
     Returns:
         Action ID
     """
-    # Check if the event at position next_t-1 (0-indexed) has contact_headquarters
+    # Check if the event at position next_t-1 (0-indexed) has the trigger activity
     # next_t is 1-indexed (prefix length), so event position is next_t-1
     event_pos = next_t - 1
     if case_activity_map.get((case_id, event_pos), False):
-        if "contact_headquarters" in action_names:
-            return action_names.index("contact_headquarters")
+        if trigger_activity in action_names:
+            return action_names.index(trigger_activity)
 
     # Default: do_nothing
     if "do_nothing" in action_names:
@@ -217,16 +218,17 @@ def extract_behavior_action(
     # Get current prefix info
     current_t = prefixes.t_ptr[prefix_idx]
 
-    # Check if next event has contact_headquarters activity
+    # Check if next event has the trigger activity
+    trigger_activity = config.get("behavior_trigger_activity", "contact_headquarters")
     if next_prefix_idx is not None:
         next_t = prefixes.t_ptr[next_prefix_idx]
         # Get events between current_t and next_t
         events_in_range = case_events.iloc[current_t - 1 : next_t]
         if len(events_in_range) > 0:
-            # Check if contact_headquarters occurred
-            if "contact_headquarters" in events_in_range["activity"].values:
-                if "contact_headquarters" in action_names:
-                    return action_names.index("contact_headquarters")
+            # Check if the trigger activity occurred
+            if trigger_activity in events_in_range["activity"].values:
+                if trigger_activity in action_names:
+                    return action_names.index(trigger_activity)
 
     # Default: do_nothing
     if "do_nothing" in action_names:
@@ -292,8 +294,10 @@ def build_transitions(
     actions_cfg = config.get("actions", {})
     action_names = actions_cfg.get("id2name", ["NOOP"])
 
-    # Build case terminal profit map (from last event outcome)
-    case_terminal_profit_map = clean_df.groupby("case_id")["outcome"].last().to_dict()
+    # Build case terminal profit map (from last event terminal column)
+    reward_cfg = config.get("reward", {})
+    terminal_col = reward_cfg.get("terminal_column", "outcome")
+    case_terminal_profit_map = clean_df.groupby("case_id")[terminal_col].last().to_dict()
 
     # Pre-compute case events map for efficiency
     case_events_map: dict[int, pd.DataFrame] = {}
@@ -303,13 +307,14 @@ def build_transitions(
         )
 
     # Pre-compute case activity positions (for faster action extraction)
-    # Map: (case_id, event_position) -> has_contact_headquarters
+    # Map: (case_id, event_position) -> has_trigger_activity
     # event_position is 0-indexed (0 = first event, 1 = second event, etc.)
+    behavior_trigger_activity = config.get("behavior_trigger_activity", "contact_headquarters")
     case_activity_map: dict[tuple[int, int], bool] = {}
     for case_id, case_events in case_events_map.items():
         for pos in range(len(case_events)):
             case_activity_map[(case_id, pos)] = (
-                case_events.iloc[pos]["activity"] == "contact_headquarters"
+                case_events.iloc[pos]["activity"] == behavior_trigger_activity
             )
 
     # Group prefixes by case
@@ -365,7 +370,7 @@ def build_transitions(
 
             # Additional check: for time_contact_HQ, decision points should be after start_standard
             # We'll be more permissive: allow all prefixes as potential decision points
-            # but filter by whether contact_headquarters can occur
+            # but filter by whether the trigger activity can occur
             if not is_dp:
                 # Check if this is after start_standard (more permissive)
                 # For now, allow all prefixes as decision points if mode is not strict
@@ -390,6 +395,7 @@ def build_transitions(
                 next_prefix_t,
                 case_activity_map,
                 action_names,
+                behavior_trigger_activity,
             )
 
             # Validate action is valid
